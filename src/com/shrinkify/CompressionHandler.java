@@ -35,16 +35,16 @@ public class CompressionHandler{
         }
     };
 
-    public void RunEncode(){
+    public void RunEncode(String path){
         String str = LoadFile();
         Map<Character,Integer> dict = CreateDict(str);
         Map<Character,Integer> savedDict = ArrayUtil.CopyDict(dict);
         int[] sorted_array = SortDict(dict);
         Node tree = CreateTree(sorted_array,dict);
-        EncodeData(tree,str,savedDict);
+        EncodeData(tree,str,savedDict,path);
     }
-    public void RunDecode(){
-        DecodeData();
+    public void RunDecode(String path){
+        DecodeData(path);
     }
 
     public Map<Character,Integer> CreateDict(String _str){
@@ -185,7 +185,7 @@ public class CompressionHandler{
         System.out.print(Math.round(progress*100f)/100f + "%");
     }
 
-    public void EncodeData(Node tree, String data,Map<Character,Integer> _charDict){
+    public void EncodeData(Node tree, String data,Map<Character,Integer> _charDict,String path){
         System.out.println("Encoding...");
         String binaryString = "";
         String debugString = "";
@@ -241,10 +241,11 @@ public class CompressionHandler{
         System.out.println("Successfully Encoded data");
 
         //Creating a File object
-        String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box";
+        //String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box";
         File file = new File(path);
         try (
                 FileOutputStream fileOutputStream = new FileOutputStream(file);
+                DataOutputStream dataOutputStream = new DataOutputStream(fileOutputStream);
         ) {
             byte[] byteRead =  new byte[encodingData.size()];
             String byteString = "";
@@ -262,8 +263,9 @@ public class CompressionHandler{
             }
 
             //Write header
-            byte headerSize = (byte) 4;
-            ByteBuffer header = ByteBuffer.allocate(4);
+            int headerAllocationBytes = 4;
+            byte headerSize = (byte) headerAllocationBytes;
+            ByteBuffer header = ByteBuffer.allocate(headerAllocationBytes);
             header.putInt(encodingData.size());
             byte[] headerBytes = header.array();
 
@@ -276,11 +278,13 @@ public class CompressionHandler{
 
             //Write character mappings to file
             for (Character c :_charDict.keySet()){
-                fileOutputStream.write((int)c);
-                fileOutputStream.write(_charDict.get(c));
+                dataOutputStream.writeInt((int)c);
+                dataOutputStream.writeInt(_charDict.get(c));
+                //System.out.println(c+"|"+_charDict.get(c));
             }
 
-           fileOutputStream.flush();
+            fileOutputStream.flush();
+            dataOutputStream.flush();
 
             System.out.println("Wrote "+count+" bytes");
 
@@ -290,10 +294,10 @@ public class CompressionHandler{
         System.out.println("Successfully wrote file");
     }
 
-    public void DecodeData(){
+    public void DecodeData(String path){
         String data="";
         //Creating a File object
-        String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box";
+        //String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box";
         File file = new File(path);
         System.out.println("Reading File...");
 
@@ -301,6 +305,7 @@ public class CompressionHandler{
 
         try (
                 FileInputStream fileInputStream = new FileInputStream(file);
+                DataInputStream dataInputStream = new DataInputStream(fileInputStream);
 
         ) {
             //get header size
@@ -343,15 +348,22 @@ public class CompressionHandler{
             boolean alternate = true;
             int lastEntry = 0;
             //Load dictionary from file
-            while ((is = fileInputStream.read())!=-1){
-                if (alternate){
-                    lastEntry = is;
-                    alternate=false;
-                }else {
-                    newCharDict.put((char)lastEntry,is);
-                    alternate=true;
+            try {
+                while (dataInputStream.available() > 0){
+                    is = dataInputStream.readInt();
+                    if (alternate){
+                        lastEntry = is;
+                        alternate=false;
+                    }else {
+                        newCharDict.put((char)lastEntry,is);
+                        alternate=true;
+                    }
                 }
+            }catch (IOException ex){
+                ex.printStackTrace();
             }
+
+
             //Recreate tree from charDict
             int[] sorted_array = SortDict(newCharDict);
             treeNode = CreateTree(sorted_array,newCharDict);
