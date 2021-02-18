@@ -8,10 +8,37 @@ import java.util.*;
 import java.io.*;
 import java.util.regex.Pattern;
 
-public class CompressionHandler{
+public class CompressionHandler implements Runnable{
+
+    /*private int var;
+
+    public MyRunnable(int var) {
+        this.var = var;
+    }*/
+    public static String loadpath, savepath;
+
+    public enum ProcessType{
+        Encode,
+        Decode
+    }
+    public static ProcessType type;
+
+
+    public void run() {
+        switch (type){
+            case Encode:
+                RunEncode();
+                break;
+            case Decode:
+                RunDecode();
+                break;
+        }
+    }
+
+
     Map<Character,Node> charNodeRefDict = new HashMap<>();
 
-    public class Node{
+    private class Node{
         public Node parentNode;
         public Node leftNode;
         public Node rightNode;
@@ -35,23 +62,28 @@ public class CompressionHandler{
         }
     };
 
-    public void RunEncode(String path){
+    public void RunEncode(){
         String str = LoadFile();
         Map<Character,Integer> dict = CreateDict(str);
         Map<Character,Integer> savedDict = ArrayUtil.CopyDict(dict);
         int[] sorted_array = SortDict(dict);
         Node tree = CreateTree(sorted_array,dict);
-        EncodeData(tree,str,savedDict,path);
+        EncodeData(tree,str,savedDict);
     }
-    public void RunDecode(String path){
-        DecodeData(path);
+    public void RunDecode(){
+        DecodeData();
     }
 
-    public Map<Character,Integer> CreateDict(String _str){
+    private Map<Character,Integer> CreateDict(String _str){
+        GUI.Log("Creating character Dictionary...");
+        long startTime = System.nanoTime();
+
         String[] charArray = _str.split("", -1);
         Map<Character,Integer> charDict = new HashMap<>();
+        int time = 0;
         for (String str : charArray)
         {
+            ProgressBar(time, charArray.length);
             if (str.length() == 0){
                 break;
             }
@@ -63,31 +95,42 @@ public class CompressionHandler{
             }else{
                 charDict.put(_char,1);
             }
+            time++;
         }
+        GUI.Log("Character Dictionary successfully created. Took " + (System.nanoTime() - startTime)/1000000  +" milliseconds.");
     return charDict;
     }
 
-    public int[] SortDict(Map<Character,Integer> dict){
+    private int[] SortDict(Map<Character,Integer> dict){
+        GUI.Log("Sorting character dictionary...");
+        long startTime = System.nanoTime();
         //Create array from dictionary key values
         int[] array = new int[dict.size()];
         int i = 0;
         for (Integer _int : dict.values())
         {
+            ProgressBar(i,dict.size());
             array[i] = _int;
             i++;
         }
         //sort array
         ArrayUtil.QuickSort(array,0,array.length-1);
+        GUI.Log("Successfully sorted. Took " + (System.nanoTime() - startTime)/1000000  +" milliseconds.");
         return array;
     }
 
 
-    public Node CreateTree(int[] array, Map<Character,Integer> charDict){
+    private Node CreateTree(int[] array, Map<Character,Integer> charDict){
+        GUI.Log("Creating Binary Tree..");
+        long startTime = System.nanoTime();
         List<Character> charDeleteBuffer= new ArrayList<Character>();
         List<Node> nodePool = new ArrayList<>();
         //Covert array into list of nodes
+        int time = 0;
+
         for (int _int : array)
         {
+            ProgressBar(time,array.length);
             for (Character _char : charDict.keySet())
             {
                 int frequency = charDict.get(_char);
@@ -109,9 +152,11 @@ public class CompressionHandler{
             }
             //clean up buffer
             charDeleteBuffer.clear();
+            time++;
         }
-
+        time = 0;
         while (nodePool.size()>1) {
+            ProgressBar(time,nodePool.size());
             //Create tree with every pair of values
             Node childNode1 = nodePool.get(0);
             Node childNode2 = nodePool.get(1);
@@ -139,6 +184,7 @@ public class CompressionHandler{
             }else{
                 nodePool.add(pos, parentNode);
             }
+            time++;
         }
         Node rootNode = nodePool.get(0);
         //Add extra parent so all codes start with 1
@@ -147,13 +193,14 @@ public class CompressionHandler{
         rootNode.parentNode = superNode;
         nodePool.remove(rootNode);
         nodePool.add(superNode);
-
+        GUI.Log("Binary Tree successfully Initialised. Took " + (System.nanoTime() - startTime)/1000000  +" milliseconds.");
         return superNode;
 
     }
 
-    public String LoadFile(){
-        String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\text.txt";
+    private String LoadFile(){
+        GUI.Log("Loading file at "+ loadpath);
+        String path = loadpath;//"C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\text.txt";
         String str = "";
         try {
             Scanner sc = new Scanner(new File(path));
@@ -167,8 +214,9 @@ public class CompressionHandler{
         }
         return str;
     }
-    public void SaveFile(String str){
-        String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\textUncompressed.txt";
+    private void SaveFile(String str,String path){
+        GUI.Log("Saving file at "+ savepath);
+        //String path = //"C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\textUncompressed.txt";
         try (
                 PrintWriter out = new PrintWriter(path);
         ) {
@@ -179,14 +227,17 @@ public class CompressionHandler{
         }
     }
 
-    public void ProgressBar(int i,int len){
+    private void ProgressBar(int i,int len){
         float progress = ((float)i/(float)len)*100f;
-        System.out.print("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-        System.out.print(Math.round(progress*100f)/100f + "%");
+        //System.out.print("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+        //System.out.print(Math.round(progress*100f)/100f + "%");
+        GUI.barProgress = progress;
+        //System.out.print("|"+progress);
     }
 
-    public void EncodeData(Node tree, String data,Map<Character,Integer> _charDict,String path){
-        System.out.println("Encoding...");
+    private void EncodeData(Node tree, String data,Map<Character,Integer> _charDict){
+        GUI.Log("Encoding...");
+        long startTime = System.nanoTime();
         String binaryString = "";
         String debugString = "";
         List<String> encodingData= new ArrayList<String>();;
@@ -238,11 +289,11 @@ public class CompressionHandler{
         }
         encodingData.add(tempByteString);
 
-        System.out.println("Successfully Encoded data");
+        GUI.Log("Successfully Encoded data. Took " + (System.nanoTime() - startTime)/1000000/1000  +" seconds.");
 
         //Creating a File object
         //String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box";
-        File file = new File(path);
+        File file = new File(savepath);
         try (
                 FileOutputStream fileOutputStream = new FileOutputStream(file);
                 DataOutputStream dataOutputStream = new DataOutputStream(fileOutputStream);
@@ -286,20 +337,21 @@ public class CompressionHandler{
             fileOutputStream.flush();
             dataOutputStream.flush();
 
-            System.out.println("Wrote "+count+" bytes");
+            GUI.Log("Wrote "+count+" bytes");
 
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        System.out.println("Successfully wrote file");
+        GUI.Log("Successfully wrote file");
+        GUI.FinishTask();
     }
 
-    public void DecodeData(String path){
+    private void DecodeData(){
         String data="";
         //Creating a File object
         //String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box";
-        File file = new File(path);
-        System.out.println("Reading File...");
+        File file = new File(loadpath);
+        GUI.Log("Reading File...");
 
         Node treeNode = new Node(null,null,null,0,' ');
 
@@ -368,7 +420,7 @@ public class CompressionHandler{
             int[] sorted_array = SortDict(newCharDict);
             treeNode = CreateTree(sorted_array,newCharDict);
 
-            System.out.println("Read "+count+" bytes");
+            GUI.Log("Read "+count+" bytes");
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -378,8 +430,9 @@ public class CompressionHandler{
         Node rootNode = treeNode;
         Node currentNode = rootNode;
         boolean dataStart = false;
-        System.out.println("Successfully read file");
-        System.out.println("Decoding...");
+        GUI.Log("Successfully read file");
+        GUI.Log("Decoding...");
+        long startTime = System.nanoTime();
         for (int i = data.length()-1; i > -1; i--) {
             ProgressBar(data.length()-i,data.length());
             char c = data.charAt(i);
@@ -410,6 +463,9 @@ public class CompressionHandler{
         if (currentNode != null) {
             decodedString = currentNode.character + decodedString;
         }
-        SaveFile(decodedString);
+        SaveFile(decodedString,savepath);
+        GUI.Log("Successfully Decoded data. Took " + (System.nanoTime() - startTime)/1000000/1000  +" seconds.");
+        GUI.Log("File saved at " + savepath);
+        GUI.FinishTask();
     }
 }
