@@ -11,6 +11,11 @@ public class Main {
         Timer timer = new Timer();
         timer.schedule(new UpdateProgress(), 0, 1);
 
+        //LZ77CompressionHandler lz77CompressionHandler = new LZ77CompressionHandler();
+        //lz77CompressionHandler.RunEncode();
+        //Thread t = new Thread(new LZ77CompressionHandler());
+        //t.start();
+
     }
     public static class UpdateProgress extends TimerTask {
         int count = 0;

@@ -204,7 +204,7 @@ public class GUI {
         compButton.setVisible(false);
         uncompButton.setVisible(false);
         viewFileButton.setVisible(false);
-        bar.pbar.setVisible(false);
+        //bar.pbar.setVisible(false);
         Timer timer = new Timer();
         timer.schedule(new UpdatePath(), 0, 1);
     }
@@ -250,14 +250,14 @@ public class GUI {
                         compButton.setVisible(true);
                         compButton.setText("Box");
                         uncompButton.setVisible(false);
-                        errorLabel.setText("");
+                        //errorLabel.setText("");
 
                     } else if (file.getName().substring(index).equalsIgnoreCase(".box")) {
                         GUI.instance.viewFileButton.setVisible(false);
                         compButton.setVisible(false);
                         uncompButton.setVisible(true);
                         uncompButton.setText("Unbox");
-                        errorLabel.setText("");
+                        //errorLabel.setText("");
                     }else{
                         errorLabel.setText("Wrong File type, .txt or .box only.");
                     }
@@ -270,6 +270,10 @@ public class GUI {
 
     public static void Log(String msg){
         log.append(msg+"\n");
+    }
+    public static void LogError(String msg){
+        log.append(msg+"\n");
+        GUI.instance.errorLabel.setText(msg);
     }
 
     public static void FinishTask(){
@@ -336,6 +340,7 @@ public class GUI {
     }
 
     public void Compress() {
+        errorLabel.setText("");
         task=true;
         loadPath = filePickerLoad.getSelectedFilePath();
         bar.pbar.setVisible(true);
@@ -351,15 +356,16 @@ public class GUI {
             Log("////////////////////////////////////////////////////////");
             savePath = chooser.getSelectedFile() +"\\"+ compressedFilename;
 
-            CompressionHandler.type = CompressionHandler.ProcessType.Encode;
-            CompressionHandler.savepath = savePath;
-            CompressionHandler.loadpath = loadPath;
+            HuffmanCompressionHandler.type = HuffmanCompressionHandler.ProcessType.Encode;
+            HuffmanCompressionHandler.savepath = savePath;
+            HuffmanCompressionHandler.loadpath = loadPath;
 
-            Thread t = new Thread(new CompressionHandler());
+            Thread t = new Thread(new HuffmanCompressionHandler());
             t.start();
         }
     }
     public void Uncompress() {
+        errorLabel.setText("");
         task=true;
         bar.pbar.setVisible(true);
         loadPath = filePickerLoad.getSelectedFilePath();
@@ -375,11 +381,11 @@ public class GUI {
             Log("////////////////////////////////////////////////////////");
             savePath = chooser.getSelectedFile() +"\\"+ uncompressedFilename;
 
-            CompressionHandler.type = CompressionHandler.ProcessType.Decode;
-            CompressionHandler.savepath = savePath;
-            CompressionHandler.loadpath = loadPath;
+            HuffmanCompressionHandler.type = HuffmanCompressionHandler.ProcessType.Decode;
+            HuffmanCompressionHandler.savepath = savePath;
+            HuffmanCompressionHandler.loadpath = loadPath;
 
-            Thread t = new Thread(new CompressionHandler());
+            Thread t = new Thread(new HuffmanCompressionHandler());
             t.start();
         }
     }
