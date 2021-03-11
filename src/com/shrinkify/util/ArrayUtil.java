@@ -1,5 +1,8 @@
 package com.shrinkify.util;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,25 +54,6 @@ public class ArrayUtil {
         _array[j] = t;
     }
 
-    public static List<String> BinaryStringToByteStringList(String binaryString, int byteLength){
-        //Split binaryString into 8 bit chunks
-        List<String> data = new ArrayList<String>();
-        int binaryLength=0;
-        String tempByteString = "";
-        for (int i = 0; i < binaryString.length(); i++) {
-            // System.out.println(i);
-            if (binaryLength<=byteLength-1){
-                tempByteString += binaryString.charAt(i);
-                binaryLength++;
-            }else {
-                data.add(tempByteString);
-                tempByteString="";
-                tempByteString+=binaryString.charAt(i);
-                binaryLength=1;
-            }
-        }
-        return data;
-    }
 
     public static Map<Character,Integer> CopyDict(Map<Character,Integer> dict){
         Map<Character,Integer> savedDict = new HashMap<>();
@@ -80,4 +64,5 @@ public class ArrayUtil {
         }
         return savedDict;
     }
+
 }

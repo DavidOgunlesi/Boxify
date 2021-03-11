@@ -12,7 +12,7 @@ import java.util.*;
 public class LZ77CompressionHandler implements Runnable{
 
     public static String loadpath, savepath;
-    int wordLength = 1;
+    int wordLength = 8;
     //String filename = "Alice.txt";
     String fileEnding = ".txt";
     public enum ProcessType{
@@ -38,8 +38,8 @@ public class LZ77CompressionHandler implements Runnable{
     }
 
     public void RunEncode() throws InterruptedException {
-        //String str = FileUtil.LoadFile( "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test"+fileEnding);
-        String str = FileUtil.LoadFile(loadpath);
+        StringBuilder str = FileUtil.LoadFile( "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test"+fileEnding);
+        //String str = FileUtil.LoadFileBinary(loadpath);
         Encode(str);
         Decode();
 
@@ -47,46 +47,42 @@ public class LZ77CompressionHandler implements Runnable{
     public void RunDecode(){
     }
 
-    private void Encode(String data){
+    private void Encode(StringBuilder data){
         //System.out.println(data);
         Map<String,Integer> encoding = new HashMap<>();
         List<Pair<Integer,String>> compressedBinaryData = new ArrayList<>();
         System.out.println("start: "+data.length());
-        String sequence = "";
+        StringBuilder  sequence = new StringBuilder();
         //int wordLength = 8;
         for (int i = 0; i < data.length(); i+=wordLength) {
             float progress = ((float)i/(float)data.length())*100f;
             GUI.barProgress = progress;
-            String c = "";
+            StringBuilder c = new StringBuilder();
+            StringBuilder binary = new StringBuilder();
             if (i+wordLength <= data.length()){
-                String binary = "";
                 for (int j = 0; j < wordLength; j++) {
-                    binary+= data.charAt(i+j);
+                    binary.append(data.charAt(i+j));
                 }
-                c+=binary;
+                c.append(binary);
                 //System.out.println(i+" | "+binary);
             }else{
-                String binary = "";
                 for (int j = 0; j < data.length()-i; j++) {
-                    binary += data.charAt(i+j);
+                    binary.append(data.charAt(i+j));
                 }
                 //Add extra bits
-                String extraBits = "";
+                StringBuilder extraBits = new StringBuilder();
                 for (int n = binary.length(); n < wordLength; n++) {
-                    extraBits +='0';
+                    extraBits.append('0');
                 }
                 //System.out.println(i+" | "+binary+extraBits);
-                c+=binary+extraBits;
+                c.append(binary.append(extraBits));
             }
-            sequence+= c;
+            sequence.append(c);
             //System.out.println(c);
             //System.out.println(i + "/" + data.length());
-            if (encoding.get(sequence)!=null){
-                //System.out.println(sequence+ " in dict");
-                continue;
-            }else{
+            if (encoding.get(sequence.toString())==null){
                 //System.out.println(sequence+ " not in dict > ");
-                encoding.put(sequence,encoding.size());
+                encoding.put(sequence.toString() ,encoding.size());
                 //System.out.println(i);
                 if (sequence.length() > wordLength) {
                     //remove last letter and get number corresponding to resulting string
@@ -97,22 +93,22 @@ public class LZ77CompressionHandler implements Runnable{
                     //System.out.println(g+" "+i+" adding");
                    //System.out.println(compressedString+" -|- "+ substring);
                 }else {
-                    compressedBinaryData.add(new Pair<>(-1, sequence));//-1 represents first character
+                    compressedBinaryData.add(new Pair<>(-1, sequence.toString()));//-1 represents first character
                    // System.out.println(g+" "+i+" adding");
                   //System.out.println(-1+" | "+ sequence);
 
                 }
-                sequence = "";
+                sequence = new StringBuilder();
             }
         }
         //Add the final bit
-        if (encoding.get(sequence)!=null) {
-            compressedBinaryData.add(new Pair<>(-1, sequence));
+        if (encoding.get(sequence.toString())!=null) {
+            compressedBinaryData.add(new Pair<>(-1, sequence.toString()));
         }
         //Write data to file
         File file = new File("C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box");
         try (
-                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                FileOutputStream fileOutputStream = new FileOutputStream(file)
 
         ) {
             for (Pair<Integer,String> pair :compressedBinaryData) {
@@ -145,9 +141,9 @@ public class LZ77CompressionHandler implements Runnable{
         File file = new File("C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box");
         //int wordLength = 8;
         Map<Integer,String> compressedBinaryData = new HashMap<>();
-        String uncompressedBinary = "";
+        StringBuilder uncompressedBinary = new StringBuilder();
         try (
-                FileInputStream fileInputStream = new FileInputStream(file);
+                FileInputStream fileInputStream = new FileInputStream(file)
                 //DataInputStream dataInputStream = new DataInputStream(fileInputStream);
 
         ) {
@@ -163,22 +159,22 @@ public class LZ77CompressionHandler implements Runnable{
                 i += (256*i_overflowCount);
                 //data += (256*data_overflowCount);
 
-                String binaryString = Integer.toBinaryString(data);//= Long.toBinaryString(data);
-                String extraBits = "";
+                StringBuilder binaryString = new StringBuilder(Integer.toBinaryString(data));//= Long.toBinaryString(data);
+                StringBuilder extraBits = new StringBuilder();
                 for (int n = binaryString.length(); n < wordLength; n++) {
-                    extraBits +='0';
+                    extraBits.append('0');
                 }
-                binaryString = extraBits+binaryString;
+                binaryString.insert(0,extraBits);
 
                 //System.out.println(binaryString);
                 //System.out.println("READ: "+overflowCount+" | "+i +" | "+data+" | "+binaryString);
                 //System.out.println("READ: "+i +" | "+data);
                 if (special == 1){
-                    uncompressedBinary+=binaryString;
-                    compressedBinaryData.put(compressedBinaryData.size(), binaryString);
+                    uncompressedBinary.append(binaryString);
+                    compressedBinaryData.put(compressedBinaryData.size(), binaryString.toString());
                 }else{
-                    uncompressedBinary+=compressedBinaryData.get(i) +  binaryString;
-                    compressedBinaryData.put(compressedBinaryData.size(), compressedBinaryData.get(i) +  binaryString);
+                    uncompressedBinary.append(binaryString.insert(0, compressedBinaryData.get(i)));
+                    compressedBinaryData.put(compressedBinaryData.size(), binaryString.insert(0,compressedBinaryData.get(i)).toString());
                 }
             }
         } catch (IOException ex) {
@@ -188,18 +184,18 @@ public class LZ77CompressionHandler implements Runnable{
         //Write data to file
         File newfile = new File("C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test_unboxed"+fileEnding);
         try (
-                FileOutputStream fileOutputStream = new FileOutputStream(newfile);
+                FileOutputStream fileOutputStream = new FileOutputStream(newfile)
 
         ) {
             for (int i = 0; i < uncompressedBinary.length(); i+=8) {
-                String binary = "";
+                StringBuilder binary = new StringBuilder();
                 //System.out.println(uncompressedBinary);
                 //System.out.println(i+"/"+uncompressedBinary.length());
                 for (int j = i; j < i+8; j++) {
-                    binary+=uncompressedBinary.charAt(j);
+                    binary.append(uncompressedBinary.charAt(j));
                 }
                 //System.out.println("WROTE:" + binary);
-                fileOutputStream.write(Integer.parseInt(binary,2));
+                fileOutputStream.write(Integer.parseInt(binary.toString(),2));
             }
             fileOutputStream.flush();
         } catch (IOException ex) {

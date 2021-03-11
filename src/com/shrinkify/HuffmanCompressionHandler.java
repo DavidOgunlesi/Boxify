@@ -3,14 +3,9 @@ package com.shrinkify;
 import com.shrinkify.util.ArrayUtil;
 import com.shrinkify.util.FileUtil;
 
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 import java.io.*;
-import java.util.regex.Pattern;
 
 public class HuffmanCompressionHandler implements Runnable{
 
@@ -21,26 +16,6 @@ public class HuffmanCompressionHandler implements Runnable{
     }*/
     public static String loadpath, savepath;
 
-    static List<Process> processes = new ArrayList<>();
-    static List<Process> aliveProcesses = new ArrayList<>();
-
-
-    private class Process{
-
-        //Thread t;
-        StringBuilder result;
-        int id;
-
-        public Process(int id){
-            this.id = id;
-            HuffmanCompressionHandler.processes.add(this);
-        }
-
-        public void CreateProcess(Thread t) throws InterruptedException {
-            t.start();
-            HuffmanCompressionHandler.aliveProcesses.add(this);
-        }
-    }
 
     public enum ProcessType{
         Encode,
@@ -73,6 +48,9 @@ public class HuffmanCompressionHandler implements Runnable{
         public Node rightNode;
         public int frequency;
         public char character;
+
+        public boolean isLeafNode = false;
+
         public List<Node> nodesToEncode = new ArrayList<>();
         public String encoding = "";
 
@@ -84,35 +62,21 @@ public class HuffmanCompressionHandler implements Runnable{
             this.character = character;
 
         }
-
-        public Boolean IsLeafNode()
-        {
-            if (leftNode == null & rightNode == null){
-                return true;
-            }
-            return false;
-        }
-    };
+    }
 
     public void RunEncode() throws InterruptedException {
-        String str = FileUtil.LoadFile(loadpath);
-        //Thread t = new Thread(() -> FileUtil.LoadFile(loadpath));
-        //t.start();
-       // t.join();
-        //String str = FileUtil.result;
-
-        //GUI.Log("Raw data length: "+str.length() + " bits");
+        StringBuilder str = FileUtil.LoadFile(loadpath);
         Map<Character,Integer> dict = CreateDict(str);
         Map<Character,Integer> savedDict = ArrayUtil.CopyDict(dict);
         int[] sorted_array = SortDict(dict);
         Node tree = CreateTree(sorted_array,dict);
-        EncodeData(str,savedDict);//TODO make encode data read file whilst encoding
+        EncodeData(str,savedDict);
     }
     public void RunDecode(){
         DecodeData();
     }
 
-    private Map<Character,Integer> CreateDict(String data) {
+    private Map<Character,Integer> CreateDict(StringBuilder data) {
         GUI.Log("Creating character Dictionary...");
         long startTime = System.nanoTime();
 
@@ -124,9 +88,9 @@ public class HuffmanCompressionHandler implements Runnable{
 
         for (int i = 0; i < data.length(); i++) //charArray would look something like [h,e,l,l,o]
             {
-                if (data.length() == 0) {
+                /*if (data.length() == 0) {
                     break;
-                }
+                }*/
                 char _char = data.charAt(i);
                 if (charDict.containsKey(_char)) {
                     int val = charDict.get(_char);
@@ -167,7 +131,7 @@ public class HuffmanCompressionHandler implements Runnable{
         GUI.Log("Character Dictionary size: "+ charDict.size());
         long startTime = System.nanoTime();
         try {
-            List<Character> charDeleteBuffer = new ArrayList<Character>();
+            List<Character> charDeleteBuffer = new ArrayList<>();
             List<Node> nodePool = new ArrayList<>();
             //Covert array into list of nodes
             int time = 0;
@@ -180,6 +144,8 @@ public class HuffmanCompressionHandler implements Runnable{
                         char character = _char;
                         //Create node object
                         Node newNode = new Node(null, null, null, frequency, character);
+                        //Make sure it knows its a leaf node
+                        newNode.isLeafNode = true;
                         newNode.nodesToEncode.add(newNode);
                         //Add node object to object pool, don't forget swimming trunks!
                         nodePool.add(newNode);
@@ -263,10 +229,9 @@ public class HuffmanCompressionHandler implements Runnable{
     }
 
     private void ProgressBar(float i,float len){
-        float progress = ((float)i/(float)len)*100f;
         //System.out.print("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
         //System.out.print(Math.round(progress*100f)/100f + "%");
-        GUI.barProgress = progress;
+        GUI.barProgress = (i/len)*100f;
         //System.out.println("|"+progress);
     }
 
@@ -276,7 +241,7 @@ public class HuffmanCompressionHandler implements Runnable{
         }
     }*/
 
-    void EncodeProcess(String data,Process process) {
+    void EncodeProcess(String data,ProcessHandler processHandler,int id) {
         //String binaryString = "";
         StringBuilder binaryString = new StringBuilder();
 
@@ -291,52 +256,32 @@ public class HuffmanCompressionHandler implements Runnable{
 
             ProgressBar(i, len);
         }
-        process.result = binaryString;
-        aliveProcesses.remove(process);
+        ProcessTask p = processHandler.getProcessByID(id);
+        p.result = binaryString;
+        processHandler.FinishTask(p);
     }
 
-    private void EncodeData(String data,Map<Character,Integer> _charDict) throws InterruptedException {
+    private void EncodeData(StringBuilder data,Map<Character,Integer> _charDict) throws InterruptedException {
         GUI.Log("Encoding...");
         long startTime = System.nanoTime();
 
+        ProcessHandler processHandler = new ProcessHandler();
         //Split text data into equal chunks and pass onto threads and processed in parallel
-        int processors = Runtime.getRuntime().availableProcessors();
-        int threadCount = processors; // Number of threads to make
+        String[] chunkArr = processHandler.DivideDataForProcesses(new StringBuilder(data));
 
-        //Stores the length of the string
-        int len = data.length();
-        int temp = 0;
-        int chunkCount = len/(threadCount-1);
-
-        //Stores the array of string
-        String[] chunkArr = new String [threadCount];
-
-        for(int i = 0; i < len; i +=chunkCount) {
-            //Dividing string in n equal part using substring()
-            String part;
-            if (i+chunkCount<len) {
-                part = data.substring(i, i+chunkCount);
-            }else {
-                part = data.substring(i, len);
-            }
-            chunkArr[temp] = part;
-            temp++;
-        }
         //Create threads
         for(int i = 0; i < chunkArr.length; i++) {
             //System.out.println(chunkArr[i]);
-            int finalI = i;
-            String str = chunkArr[finalI];
-            Process newProcess = new Process(i);
-            Thread t = new Thread(() -> EncodeProcess(str,newProcess));
-            newProcess.CreateProcess(t);
+            int id = i;
+            String str = chunkArr[id];
+            processHandler.CreateProcess(() -> EncodeProcess(str,processHandler,id),id);
         }
-        GUI.Log("Started "+aliveProcesses.size()+" Threads");
 
-        while (aliveProcesses.size()>0){
-            //wait on threads
-            Thread.sleep(1000);
-        }
+        GUI.Log("Started "+processHandler.aliveProcessTasks.size()+" Threads");
+
+        //wait on threads to finish
+        processHandler.Wait();
+
         GUI.Log("All threads successfully executed, processing results.");
 
         //StringBuilder binaryString =  new StringBuilder();
@@ -344,12 +289,12 @@ public class HuffmanCompressionHandler implements Runnable{
         File file = new File(savepath);
         try (
                 FileOutputStream fileOutputStream = new FileOutputStream(file);
-                DataOutputStream dataOutputStream = new DataOutputStream(fileOutputStream);
+                DataOutputStream dataOutputStream = new DataOutputStream(fileOutputStream)
         ) {
 
             //Get result data size
             int dataSize = 0;
-            for (Process p: processes) {
+            for (ProcessTask p: processHandler.processTasks) {
                 dataSize += p.result.length();
             }
             //account for non perfect byte division
@@ -373,14 +318,14 @@ public class HuffmanCompressionHandler implements Runnable{
 
 
             String leftOver = "";
-            for (Process p: processes) {
+            for (ProcessTask p: processHandler.processTasks) {
                 //List<String> encodingData= new ArrayList<>();
                 StringBuilder binaryString = new StringBuilder(leftOver);
                 binaryString.append(p.result);
 
                 //Split binaryString into 8 bit chunks
                 int binaryStringLen = binaryString.length();
-                int processesLength = binaryStringLen*processes.size();
+                int processesLength = binaryStringLen*processHandler.processTasks.size();
                 int processCumulativeWork = p.id*binaryStringLen;
                 int binaryLength = 0;
                 int byteLength = 8;
@@ -394,7 +339,7 @@ public class HuffmanCompressionHandler implements Runnable{
                         binaryLength++;
                     } else {
                         int _int = Integer.parseInt(tempByteString.toString(), 2);
-                        Byte byteRead = (byte)(_int-128);
+                        byte byteRead = (byte)(_int-128);
                         //Write encoded data
                         fileOutputStream.write(byteRead);
                         tempByteString = new StringBuilder();
@@ -403,7 +348,7 @@ public class HuffmanCompressionHandler implements Runnable{
                     }
                 }
                 //if not last process, add overflow to next processes data else handle overflow
-                if (p.id != processes.size()-1){
+                if (p.id != processHandler.processTasks.size()-1){
                     leftOver = tempByteString.toString();
                 }else{
                     //add extra bits
@@ -412,13 +357,13 @@ public class HuffmanCompressionHandler implements Runnable{
                     }
 
                     int _int = Integer.parseInt(tempByteString.toString(), 2);
-                    Byte byteRead = (byte)(_int-128);
+                    byte byteRead = (byte)(_int-128);
                     //Write encoded data
                     fileOutputStream.write(byteRead);
                     fileOutputStream.flush();
                 }
             }
-            processes.clear();
+            processHandler.flush();
             //Write character mappings to file
             for (Character c :_charDict.keySet()){
                 dataOutputStream.writeInt((int)c);
@@ -440,18 +385,45 @@ public class HuffmanCompressionHandler implements Runnable{
         GUI.FinishTask();
     }
 
+    private void DecodeReadProcess(byte[] bytes,ProcessHandler processHandler,int id){
+        int count = 0;
+        int len = bytes.length;
+        ProcessTask p = processHandler.getProcessByID(id);
+        p.result = new StringBuilder();
+        for (byte aByte : bytes) {
+
+            ProgressBar(count, len);
+            count++;
+            int raw_data = aByte;
+            raw_data += 128;//Binary stored in bytes so shift needed as bytes go from -128 to 128
+
+            //Build binary string of huffman codes byte by byte
+            String datString = Integer.toBinaryString(raw_data);
+            //Add lost bits back
+            for (int i = datString.length(); i < 8; i++) {
+                StringBuilder sb = new StringBuilder(datString);
+                sb.insert(0, '0');
+                datString = sb.toString();
+            }
+            p.result.append(datString);
+        }
+        processHandler.FinishTask(p);
+    }
+
     private void DecodeData(){
-        StringBuilder data= new StringBuilder();
+        //StringBuilder data= new StringBuilder();
         //Creating a File object
         //String path = "C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\test.box";
         File file = new File(loadpath);
         GUI.Log("Reading File...");
 
         Node treeNode = new Node(null,null,null,0,' ');
-
+        ProcessHandler processHandler = new ProcessHandler();
+        Map<String,Character> cachedEncodings = new HashMap<>();
         try (
                 FileInputStream fileInputStream = new FileInputStream(file);
-                DataInputStream dataInputStream = new DataInputStream(fileInputStream);
+                BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+                DataInputStream dataInputStream = new DataInputStream(fileInputStream)
 
         ) {
             //get header size
@@ -461,21 +433,41 @@ public class HuffmanCompressionHandler implements Runnable{
             fileInputStream.read(headerBytes,0,headerSize);
             //convert header into integer
             ByteBuffer wrapped = ByteBuffer.wrap(headerBytes); // big-endian by default
-            int headerValue = wrapped.getInt();
-            int dataPortionSize = headerValue;
 
-            byte[] bytes = new byte[dataPortionSize];
+            int headerValue = wrapped.getInt();
+
+            byte[] bytes = new byte[headerValue];
 
             //Read all data bytes
-            fileInputStream.read(bytes,0,dataPortionSize);
-
+            bufferedInputStream.read(bytes,0, headerValue);
             int count = 0;
-            for (int a = 0; a < bytes.length; a++) {
+
+            //Split text data into equal chunks and pass onto threads and processed in parallel
+            byte[][] chunkArr = processHandler.DivideDataForProcesses(bytes);
+
+            //Create threads
+            for(int i = 0; i < chunkArr.length; i++) {
+                //System.out.println(chunkArr[i]);
+                int id = i;
+                byte[] b = chunkArr[id];
+                processHandler.CreateProcess(() -> DecodeReadProcess(b,processHandler,id),id);
+            }
+
+            GUI.Log("Started "+processHandler.aliveProcessTasks.size()+" Threads");
+
+            //wait on threads to finish
+            processHandler.Wait();
+
+            GUI.Log("All threads successfully executed, processing results.");
+
+
+
+            /*for (int a = 0; a < bytes.length; a++) {
 
                 ProgressBar(count,(int)file.length());
                 count++;
                 int raw_data = bytes[a];
-                raw_data+=128;//Binary stored in bytes so shift needed as bytes go fro -128 to 128
+                raw_data+=128;//Binary stored in bytes so shift needed as bytes go from -128 to 128
 
                 //Build binary string of huffman codes byte by byte
                 String datString = Integer.toBinaryString(raw_data);
@@ -486,7 +478,8 @@ public class HuffmanCompressionHandler implements Runnable{
                     datString = sb.toString();
                 }
                 data.append(datString);
-            }
+            }*/
+
 
             int is;
             //Recreate charDict
@@ -508,57 +501,87 @@ public class HuffmanCompressionHandler implements Runnable{
             }catch (IOException ex){
                 ex.printStackTrace();
             }
+            bufferedInputStream.close();
 
-
+            Map<Character,Integer> cachedNewCharDict = new HashMap<>(newCharDict);
             //Recreate tree from charDict
             int[] sorted_array = SortDict(newCharDict);
             treeNode = CreateTree(sorted_array,newCharDict);
             if (treeNode == null){
                 return;
             }
-            GUI.Log("Read "+count+" bytes");
-        } catch (IOException ex) {
+
+            //store encodings in hashmap
+            for (Character c:  cachedNewCharDict.keySet()) {
+                Node node = charNodeRefDict.get(c);
+                cachedEncodings.put(node.encoding,c);
+            }
+
+            GUI.Log("Read "+ headerValue +" bytes");
+        } catch (IOException | InterruptedException ex) {
             ex.printStackTrace();
         }
 
+        //process results
 
-        String decodedString = "";
+        StringBuilder decodedString = new StringBuilder();
         Node rootNode = treeNode;
         Node currentNode = rootNode;
-        boolean dataStart = false;
+        //boolean dataStart = false;
         GUI.Log("Successfully read file");
         GUI.Log("Decoding...");
         long startTime = System.nanoTime();
-        for (int i = data.length()-1; i > -1; i--) {
-            ProgressBar(data.length()-i,data.length());
-            char c = data.charAt(i);
-            //If branch returns null and at rootnode, ignore bit
-            if (currentNode==rootNode && c == '0' && !dataStart){
-                continue;
-            }else if(currentNode==rootNode){
-                dataStart = true;
-            }
-            if (currentNode==null){
-                currentNode = rootNode;
-                continue;
-            }
-            //if reached end of tree, you have your character!
-            if (currentNode.rightNode == null && currentNode.leftNode == null) {
-                decodedString = currentNode.character + decodedString;
-                currentNode = rootNode;
-                //continue;
-            }
-            //take branches along tree
-            if (c == '1'){
-                currentNode = currentNode.rightNode;
-            }else{
-                currentNode = currentNode.leftNode;
+
+
+        //StringBuilder sequence = new StringBuilder(processHandler.processTasks.get(0).result.charAt(0));
+        //populate results
+        boolean dataStart = false;
+        Map<String,Character> cache = new HashMap<>();
+        for (int pnum = processHandler.processTasks.size()-1; pnum > -1; pnum--) {
+
+            ProcessTask p = processHandler.processTasks.get(pnum);
+            StringBuilder data = p.result;
+            GUI.Log("Decode Process " + p.id + " start ready "+ data.length()/8 + " bytes.");
+            int taskWorkLeft = processHandler.processTasks.size()- p.id;
+            int totalWork = data.length()*processHandler.processTasks.size();
+
+            int binaryStringLen = data.length();
+
+            for (int i = data.length()-1; i > -1; i--) {
+                ProgressBar(taskWorkLeft*(binaryStringLen-i),totalWork);
+                char c = data.charAt(i);
+                if (!dataStart) {
+                    if (c == '0') {
+                        continue;
+                    } else {
+                        dataStart = true;
+                    }
+                }
+
+                if (currentNode == null) {
+                    currentNode = rootNode;
+                    continue;
+                }
+                //if reached end of tree, you have your character!
+                if (currentNode.isLeafNode) {
+                    char nodeChar = currentNode.character;
+                    decodedString.insert(0, nodeChar);
+                    currentNode = rootNode;
+                }
+                //take branches along tree
+                if (c == '1') {
+                    currentNode = currentNode.rightNode;
+                } else {
+                    currentNode = currentNode.leftNode;
+                }
             }
         }
         //Add last character
         if (currentNode != null) {
-            decodedString = currentNode.character + decodedString;
+            decodedString.insert(0, currentNode.character);
         }
+        processHandler.flush();
+
         FileUtil.SaveFile(decodedString,savepath);
         GUI.Log("Successfully Decoded data. Took " + (System.nanoTime() - startTime)/1000000/1000  +" seconds.");
         GUI.Log("File saved at " + savepath);

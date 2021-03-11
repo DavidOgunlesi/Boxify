@@ -23,6 +23,7 @@ public class GUI {
     private JButton compButton, uncompButton,viewFileButton;
     private JButton logButton;
     private JPanel panel;
+    private JLabel estLabel;
     private JLabel errorLabel;
     private JLabel new_logo;
     JScrollPane pane;
@@ -41,6 +42,12 @@ public class GUI {
 
     public static GUI instance;
 
+    public enum CompressionType{
+        Huffman,
+        LZ77
+    }
+    public static CompressionType type = CompressionType.Huffman;
+
     public GUI() throws Exception {
         if (instance==null){
             instance = this;
@@ -58,7 +65,11 @@ public class GUI {
         compButton = new JButton(new AbstractAction("Box") {
             @Override
             public void actionPerformed( ActionEvent e ) {
-                Compress();
+                try {
+                    Compress();
+                } catch (InterruptedException interruptedException) {
+                    interruptedException.printStackTrace();
+                }
             }
         });
         uncompButton = new JButton(new AbstractAction("Unbox") {
@@ -86,6 +97,8 @@ public class GUI {
         });
         errorLabel = new JLabel();
         errorLabel.setForeground(Color.red);
+
+        estLabel = new JLabel("Estimated Time: ");
 
         ImageIcon icon = new ImageIcon("C:\\Users\\timid\\OneDrive\\Desktop\\PERSONAL\\JAVA\\Shrinkify\\src\\resources\\logo.png");
         Image image = icon.getImage(); // transform it
@@ -175,6 +188,7 @@ public class GUI {
         panel.add(filePickerLoad,c);
         bar = new LoadingBar(panel);
         panel.add(bar.pbar,c);
+        panel.add(estLabel,c);
         panel.add(compButton,c);
         panel.add(uncompButton,c);
         panel.add(viewFileButton,c);
@@ -204,7 +218,8 @@ public class GUI {
         compButton.setVisible(false);
         uncompButton.setVisible(false);
         viewFileButton.setVisible(false);
-        //bar.pbar.setVisible(false);
+        estLabel.setVisible(false);
+        bar.pbar.setVisible(false);
         Timer timer = new Timer();
         timer.schedule(new UpdatePath(), 0, 1);
     }
@@ -246,6 +261,8 @@ public class GUI {
                 File file = new File(loadPath);
                 int index = file.getName().lastIndexOf(".");
                     if (file.getName().substring(index).equalsIgnoreCase(".txt")) {
+                        GUI.SetEstimatedTime(Math.round((float) file.length()/1000/292.8478291f));
+                        estLabel.setVisible(true);
                         GUI.instance.viewFileButton.setVisible(false);
                         compButton.setVisible(true);
                         compButton.setText("Box");
@@ -253,7 +270,9 @@ public class GUI {
                         //errorLabel.setText("");
 
                     } else if (file.getName().substring(index).equalsIgnoreCase(".box")) {
+                        GUI.SetEstimatedTime(Math.round((float) file.length()/1000/292.8478291f));
                         GUI.instance.viewFileButton.setVisible(false);
+                        //estLabel.setVisible(true);
                         compButton.setVisible(false);
                         uncompButton.setVisible(true);
                         uncompButton.setText("Unbox");
@@ -263,18 +282,24 @@ public class GUI {
                     }
 
             }catch (Exception e){
-
+                //Do nothing
             }
         }
     }
 
     public static void Log(String msg){
         log.append(msg+"\n");
+        System.out.println(msg);
     }
     public static void LogError(String msg){
         log.append(msg+"\n");
         GUI.instance.errorLabel.setText(msg);
     }
+
+    public static void SetEstimatedTime(int timeInSecs){
+        GUI.instance.estLabel.setText("Estimated Time : " + timeInSecs + " seconds");
+    }
+
 
     public static void FinishTask(){
         GUI.instance.loadPath = "";
@@ -339,11 +364,12 @@ public class GUI {
         }
     }
 
-    public void Compress() {
+    public void Compress() throws InterruptedException {
         errorLabel.setText("");
         task=true;
         loadPath = filePickerLoad.getSelectedFilePath();
         bar.pbar.setVisible(true);
+        estLabel.setVisible(true);
         File file = new File(loadPath);
         int index = file.getName().lastIndexOf(".");
         String compressedFilename = file.getName().substring(0, index)+".box";
@@ -356,18 +382,27 @@ public class GUI {
             Log("////////////////////////////////////////////////////////");
             savePath = chooser.getSelectedFile() +"\\"+ compressedFilename;
 
-            HuffmanCompressionHandler.type = HuffmanCompressionHandler.ProcessType.Encode;
-            HuffmanCompressionHandler.savepath = savePath;
-            HuffmanCompressionHandler.loadpath = loadPath;
+            if (type == CompressionType.Huffman) {
 
-            Thread t = new Thread(new HuffmanCompressionHandler());
-            t.start();
+                HuffmanCompressionHandler.type = HuffmanCompressionHandler.ProcessType.Encode;
+                HuffmanCompressionHandler.savepath = savePath;
+                HuffmanCompressionHandler.loadpath = loadPath;
+
+                Thread t = new Thread(new HuffmanCompressionHandler());
+                t.start();
+            }else{
+                LZ77CompressionHandler lz77CompressionHandler = new LZ77CompressionHandler();
+                lz77CompressionHandler.RunEncode();
+                Thread t = new Thread(new LZ77CompressionHandler());
+                t.start();
+            }
         }
     }
     public void Uncompress() {
         errorLabel.setText("");
         task=true;
         bar.pbar.setVisible(true);
+        estLabel.setVisible(true);
         loadPath = filePickerLoad.getSelectedFilePath();
         File file = new File(loadPath);
         int index = file.getName().lastIndexOf(".");
@@ -381,12 +416,19 @@ public class GUI {
             Log("////////////////////////////////////////////////////////");
             savePath = chooser.getSelectedFile() +"\\"+ uncompressedFilename;
 
-            HuffmanCompressionHandler.type = HuffmanCompressionHandler.ProcessType.Decode;
-            HuffmanCompressionHandler.savepath = savePath;
-            HuffmanCompressionHandler.loadpath = loadPath;
+            if (type == CompressionType.Huffman) {
+                HuffmanCompressionHandler.type = HuffmanCompressionHandler.ProcessType.Decode;
+                HuffmanCompressionHandler.savepath = savePath;
+                HuffmanCompressionHandler.loadpath = loadPath;
 
-            Thread t = new Thread(new HuffmanCompressionHandler());
-            t.start();
+                Thread t = new Thread(new HuffmanCompressionHandler());
+                t.start();
+            }else{
+                LZ77CompressionHandler lz77CompressionHandler = new LZ77CompressionHandler();
+                lz77CompressionHandler.RunDecode();
+                Thread t = new Thread(new LZ77CompressionHandler());
+                t.start();
+            }
         }
     }
 
