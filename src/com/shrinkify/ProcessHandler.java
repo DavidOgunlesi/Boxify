@@ -93,6 +93,7 @@ public class ProcessHandler {
         while (aliveProcessTasks.size()>0){
             //wait on threads
             Thread.sleep(1000);
+            //System.out.println(aliveProcessTasks.size());
         }
     }
 }

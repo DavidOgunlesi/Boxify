@@ -295,6 +295,11 @@ public class GUI {
         log.append(msg+"\n");
         GUI.instance.errorLabel.setText(msg);
     }
+    public static void ClearLog(){
+        log.setText("");
+        //GUI.instance.pane = new JScrollPane(log);
+
+    }
 
     public static void SetEstimatedTime(int timeInSecs){
         GUI.instance.estLabel.setText("Estimated Time : " + timeInSecs + " seconds");
@@ -376,6 +381,7 @@ public class GUI {
 
         JFileChooser chooser = CreateSaveDirectoryChooser();
         if (chooser.showOpenDialog(panel) == JFileChooser.APPROVE_OPTION) {
+            ClearLog();
             Log("////////////////////////NEW TASK////////////////////////");
             Log("Target Directory:"+  chooser.getSelectedFile() +"\\"+compressedFilename);
             Log("Task Type: Compress");
@@ -410,6 +416,7 @@ public class GUI {
 
         JFileChooser chooser = CreateSaveDirectoryChooser();
         if (chooser.showOpenDialog(panel) == JFileChooser.APPROVE_OPTION) {
+            ClearLog();
             Log("////////////////////////NEW TASK////////////////////////");
             Log("Target Directory:"+  chooser.getSelectedFile() +"\\"+uncompressedFilename);
             Log("Task Type: Uncompress");

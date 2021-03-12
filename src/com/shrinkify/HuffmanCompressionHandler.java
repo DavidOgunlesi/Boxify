@@ -9,11 +9,6 @@ import java.io.*;
 
 public class HuffmanCompressionHandler implements Runnable{
 
-    /*private int var;
-
-    public MyRunnable(int var) {
-        this.var = var;
-    }*/
     public static String loadpath, savepath;
 
 
