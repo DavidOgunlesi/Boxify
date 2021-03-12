@@ -4,26 +4,15 @@ Boxify is a Java GUI program which handles compression and decompression of text
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+Check out the release page
 
 ```bash
 pip install foobar
 ```
 
 ## Usage
-
-```python
-import foobar
-
-foobar.pluralize('word') # returns 'words'
-foobar.pluralize('goose') # returns 'geese'
-foobar.singularize('phenomena') # returns 'phenomenon'
-```
-
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
+Run the jar file in the main folder by double clicking it.
+Click the help menu if you are stuck, or watch the video provided in the main file.
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
